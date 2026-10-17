@@ -213,7 +213,10 @@ Em `webapps-dev` pode fazer sentido se o fluxo exigir, mas não é padrão.
 ## Limitações
 
 - **Cluster único** — dev e prod coabitam com separação apenas por namespace (sem NetworkPolicy, sem ResourceQuota).
-- **Sem observabilidade com Prometheus/Grafana** — tentado via `kube-prometheus-stack`, mas sobrecarregou o cluster (load average 30+ em VM com 6 CPUs). Observabilidade vigente é via `diagnose.py` + condições/eventos/logs nativos.
+- **Sem observabilidade com Prometheus/Grafana** — `kube-prometheus-stack` tentado duas vezes e descartado:
+  - 1ª tentativa (6 vCPUs, 10 GB): load average chegou a 33 (5.5× saturado), apiserver com restarts em cascata, revertido.
+  - 2ª tentativa (10 vCPUs, 10 GB): load average chegou a **83 (8.3× saturado)**, pior que a 1ª apesar do bump de CPU, apiserver com Timeout em `kubectl`, revertido.
+  - **Conclusão:** CPU não é o gargalo isolado; é a combinação de admission webhooks + múltiplos ServiceMonitors fazendo scrape imediato + prometheus-operator reconciliando CRDs, criando avalanche de requests ao apiserver num cluster single-node. Alternativas viáveis estão no Roadmap. Observabilidade vigente é via `diagnose.py` + condições/eventos/logs nativos.
 - **Sem segredos reais** — `config` vai pra `ConfigMap`; nenhum `Secret` é gerado.
 - **Função única** — apenas `function-patch-and-transform`; sem lógica customizada em Go/Python.
 - **Sem imagem com digest** — todas as WebApps usam tags móveis, não digests.
@@ -222,7 +225,7 @@ Em `webapps-dev` pode fazer sentido se o fluxo exigir, mas não é padrão.
 ## Roadmap
 
 - NetworkPolicy e ResourceQuota em `webapps-dev`/`webapps-prod` para isolamento mínimo.
-- Monitoring: avaliar stack mais leve (prometheus standalone + Grafana opcional) ou aumentar recursos da VM.
+- Monitoring: evitar `kube-prometheus-stack` nesta topologia. Candidatos a tentar: Prometheus community sem operator (sem CRDs/webhooks), VictoriaMetrics (`vmsingle` + `vmagent`, ~100 MB RAM) ou `kube-prometheus-stack` com `prometheusOperator.enabled: false` + Prometheus "estático".
 - Secrets: suporte a `Secret` via novo recurso na Composition.
 - Testes HTTP automáticos: `scripts/smoke.py` ou job de Argo rodando curl.
 - App-of-apps: um `bootstrap/root.yaml` que vigia o próprio `bootstrap/`.
