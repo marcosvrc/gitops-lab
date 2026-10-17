@@ -1,0 +1,98 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: webapp-local
+spec:
+  compositeTypeRef:
+    apiVersion: platform.example.org/v1alpha1
+    kind: WebApp
+  mode: Pipeline
+  pipeline:
+    - step: create-webapp
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        resources:
+          - name: deployment
+            base:
+              apiVersion: apps/v1
+              kind: Deployment
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: placeholder
+                template:
+                  metadata:
+                    labels:
+                      app: placeholder
+                  spec:
+                    containers:
+                      - name: web
+                        image: nginx:1.28
+                        ports:
+                          - containerPort: 80
+                        readinessProbe:
+                          httpGet:
+                            path: /
+                            port: 80
+                          initialDelaySeconds: 2
+                          periodSeconds: 5
+                        resources:
+                          requests:
+                            cpu: 50m
+                            memory: 64Mi
+                          limits:
+                            cpu: 250m
+                            memory: 128Mi
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: metadata.namespace
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.selector.matchLabels.app
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.template.metadata.labels.app
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.image
+                toFieldPath: spec.template.spec.containers[0].image
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.replicas
+                toFieldPath: spec.replicas
+            readinessChecks:
+              - type: MatchCondition
+                matchCondition:
+                  type: Available
+                  status: "True"
+          - name: service
+            base:
+              apiVersion: v1
+              kind: Service
+              spec:
+                type: ClusterIP
+                selector:
+                  app: placeholder
+                ports:
+                  - name: http
+                    port: 80
+                    targetPort: 80
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: metadata.namespace
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.selector.app
+            readinessChecks:
+              - type: NonEmpty
+                fieldPath: spec.clusterIP
