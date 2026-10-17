@@ -14,6 +14,7 @@ spec:
     namespace: crossplane-system
   syncPolicy:
     automated:
+      enabled: false
       prune: false
       selfHeal: true
     syncOptions:

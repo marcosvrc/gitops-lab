@@ -14,6 +14,7 @@ spec:
     namespace: webapps
   syncPolicy:
     automated:
+      enabled: false
       prune: false
       selfHeal: true
     syncOptions:
