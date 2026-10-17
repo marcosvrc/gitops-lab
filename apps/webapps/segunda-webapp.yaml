@@ -1,0 +1,11 @@
+apiVersion: platform.example.org/v1alpha1
+kind: WebApp
+metadata:
+  name: segunda-webapp
+  namespace: webapps
+spec:
+  image: nginx:1.28
+  replicas: 1
+  crossplane:
+    compositionRef:
+      name: webapp-local
