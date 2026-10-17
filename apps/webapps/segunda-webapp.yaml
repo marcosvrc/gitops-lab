@@ -5,7 +5,7 @@ metadata:
   namespace: webapps
 spec:
   image: nginx:1.28
-  replicas: 2
+  replicas: 1
   crossplane:
     compositionRef:
       name: webapp-local
