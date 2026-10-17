@@ -1,0 +1,11 @@
+apiVersion: platform.example.org/v1alpha1
+kind: WebApp
+metadata:
+  name: minha-webapp
+  namespace: webapps
+spec:
+  image: nginx:1.28
+  replicas: 2
+  crossplane:
+    compositionRef:
+      name: webapp-local
