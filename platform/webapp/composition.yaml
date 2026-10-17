@@ -66,6 +66,12 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.replicas
                 toFieldPath: spec.replicas
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.cpuLimit
+                toFieldPath: spec.template.spec.containers[0].resources.limits.cpu
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.memoryLimit
+                toFieldPath: spec.template.spec.containers[0].resources.limits.memory  
             readinessChecks:
               - type: MatchCondition
                 matchCondition:
@@ -93,6 +99,9 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: spec.selector.app
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.servicePort
+                toFieldPath: spec.ports[0].port
             readinessChecks:
               - type: NonEmpty
                 fieldPath: spec.clusterIP
