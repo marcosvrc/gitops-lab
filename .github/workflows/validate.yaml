@@ -1,0 +1,75 @@
+name: Validate GitOps
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install \
+            yamllint==1.35.1 \
+            PyYAML==6.0.2 \
+            jsonschema==4.23.0
+
+      - name: Validate YAML
+        run: |
+          yamllint -c .yamllint.yaml \
+            .github/workflows \
+            bootstrap \
+            platform \
+            apps \
+            .yamllint.yaml
+
+      - name: Install kubeconform
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
+            -o /tmp/kubeconform.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo install /tmp/kubeconform /usr/local/bin/kubeconform
+
+      - name: Install Crossplane CLI
+        working-directory: /tmp
+        run: |
+          curl --fail --silent --show-error --location \
+            https://cli.crossplane.io/install.sh \
+            -o install-crossplane.sh
+          XP_VERSION=v2.5.0 sh install-crossplane.sh
+          sudo install crossplane /usr/local/bin/crossplane
+
+      - name: Check Docker
+        run: docker info
+
+      - name: Validate native Kubernetes manifests
+        run: |
+          kubeconform -strict -summary \
+            apps/hello/ \
+            platform/webapp/rbac.yaml
+
+      - name: Validate WebApps and render Composition
+        run: python scripts/validate_webapps.py
