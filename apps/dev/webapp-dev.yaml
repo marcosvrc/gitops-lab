@@ -4,7 +4,7 @@ metadata:
   name: webapp-dev
   namespace: webapps-dev
 spec:
-  image: nginx:1.28
+  image: nginx:1.29
   replicas: 1
   servicePort: 8080
   size: small
