@@ -210,3 +210,6 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.config
                 toFieldPath: data
+
+            readinessChecks:
+              - type: None
