@@ -7,8 +7,7 @@ spec:
   image: nginx:1.28
   replicas: 1
   servicePort: 8080
-  cpuLimit: "500m"
-  memoryLimit: "256Mi"
+  size: medium
   crossplane:
     compositionRef:
       name: webapp-local
