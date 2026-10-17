@@ -4,7 +4,7 @@ metadata:
   name: webapp-prod
   namespace: webapps-prod
 spec:
-  image: nginx:1.29
+  image: nginx:1.28
   replicas: 2
   servicePort: 8080
   size: medium
