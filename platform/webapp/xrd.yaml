@@ -35,7 +35,7 @@ spec:
                   maximum: 65535
                 cpuLimit:
                   type: string
-                  description: Limite de CPU por container.
+                  description: Limite de CPU quando size nao estiver definido.
                   default: "250m"
                   enum:
                     - "250m"
@@ -43,11 +43,18 @@ spec:
                     - "1000m"
                 memoryLimit:
                   type: string
-                  description: Limite de memoria por container.
+                  description: Limite de memoria quando size nao estiver definido.
                   default: "128Mi"
                   enum:
                     - "128Mi"
                     - "256Mi"
                     - "512Mi"
+                size:
+                  type: string
+                  description: Perfil de recursos que prevalece sobre os limites individuais.
+                  enum:
+                    - small
+                    - medium
+                    - large
               required:
                 - image
