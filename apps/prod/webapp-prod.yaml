@@ -11,3 +11,6 @@ spec:
   crossplane:
     compositionRef:
       name: webapp-local
+    compositionUpdatePolicy: Manual
+    compositionRevisionRef:
+      name: webapp-local-38a7c36

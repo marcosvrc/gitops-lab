@@ -62,7 +62,28 @@ schema["properties"]["crossplane"] = {
             },
             "required": ["name"],
             "additionalProperties": False,
-        }
+        },
+        "compositionUpdatePolicy": {
+            "type": "string",
+            "enum": ["Automatic", "Manual"],
+        },
+        "compositionRevisionRef": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+        "compositionRevisionSelector": {
+            "type": "object",
+            "properties": {
+                "matchLabels": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                }
+            },
+            "required": ["matchLabels"],
+            "additionalProperties": False,
+        },
     },
     "required": ["compositionRef"],
     "additionalProperties": False,
