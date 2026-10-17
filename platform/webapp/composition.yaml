@@ -51,32 +51,89 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: metadata.name
+
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.namespace
                 toFieldPath: metadata.namespace
+
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: spec.selector.matchLabels.app
+
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: spec.template.metadata.labels.app
+
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.image
                 toFieldPath: spec.template.spec.containers[0].image
+
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.replicas
                 toFieldPath: spec.replicas
+
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.cpuLimit
                 toFieldPath: spec.template.spec.containers[0].resources.limits.cpu
+
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.memoryLimit
                 toFieldPath: spec.template.spec.containers[0].resources.limits.memory
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.size
+                toFieldPath: spec.template.spec.containers[0].resources.requests.cpu
+                policy:
+                  fromFieldPath: Optional
+                transforms:
+                  - type: map
+                    map:
+                      small: "50m"
+                      medium: "100m"
+                      large: "250m"
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.size
+                toFieldPath: spec.template.spec.containers[0].resources.limits.cpu
+                policy:
+                  fromFieldPath: Optional
+                transforms:
+                  - type: map
+                    map:
+                      small: "250m"
+                      medium: "500m"
+                      large: "1000m"
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.size
+                toFieldPath: spec.template.spec.containers[0].resources.requests.memory
+                policy:
+                  fromFieldPath: Optional
+                transforms:
+                  - type: map
+                    map:
+                      small: "64Mi"
+                      medium: "128Mi"
+                      large: "256Mi"
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.size
+                toFieldPath: spec.template.spec.containers[0].resources.limits.memory
+                policy:
+                  fromFieldPath: Optional
+                transforms:
+                  - type: map
+                    map:
+                      small: "128Mi"
+                      medium: "256Mi"
+                      large: "512Mi"
+
             readinessChecks:
               - type: MatchCondition
                 matchCondition:
                   type: Available
                   status: "True"
+
           - name: service
             base:
               apiVersion: v1
@@ -93,15 +150,19 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: metadata.name
+
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.namespace
                 toFieldPath: metadata.namespace
+
               - type: FromCompositeFieldPath
                 fromFieldPath: metadata.name
                 toFieldPath: spec.selector.app
+
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.servicePort
                 toFieldPath: spec.ports[0].port
+
             readinessChecks:
               - type: NonEmpty
                 fieldPath: spec.clusterIP
