@@ -21,12 +21,33 @@ spec:
               properties:
                 image:
                   type: string
-                  description: Imagem do container da aplicacao.
+                  description: Imagem do container.
                 replicas:
                   type: integer
-                  description: Quantidade de replicas.
                   default: 1
                   minimum: 1
                   maximum: 5
+                servicePort:
+                  type: integer
+                  description: Porta de acesso do Service.
+                  default: 80
+                  minimum: 1
+                  maximum: 65535
+                cpuLimit:
+                  type: string
+                  description: Limite de CPU por container.
+                  default: "250m"
+                  enum:
+                    - "250m"
+                    - "500m"
+                    - "1000m"
+                memoryLimit:
+                  type: string
+                  description: Limite de memoria por container.
+                  default: "128Mi"
+                  enum:
+                    - "128Mi"
+                    - "256Mi"
+                    - "512Mi"
               required:
                 - image
