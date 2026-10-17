@@ -151,8 +151,9 @@ for folder, expected_namespace in ENVIRONMENTS.items():
             )
         ]
         require(
-            sorted(doc["kind"] for doc in resources) == ["Deployment", "Service"],
-            f"{path}: esperado exatamente um Deployment e um Service.",
+            sorted(doc["kind"] for doc in resources)
+            == ["ConfigMap", "Deployment", "Service"],
+            f"{path}: esperado exatamente um ConfigMap, um Deployment e um Service.",
         )
 
         output_path = env_build / f"{path.stem}-resources.yaml"

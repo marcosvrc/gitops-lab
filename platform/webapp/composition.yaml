@@ -37,6 +37,9 @@ spec:
                         image: nginx:1.28
                         ports:
                           - containerPort: 80
+                        envFrom:
+                          - configMapRef:
+                              name: placeholder
                         readinessProbe:
                           httpGet:
                             path: /
@@ -74,6 +77,22 @@ spec:
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.replicas
                 toFieldPath: spec.replicas
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.containerPort
+                toFieldPath: spec.template.spec.containers[0].ports[0].containerPort
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.containerPort
+                toFieldPath: spec.template.spec.containers[0].readinessProbe.httpGet.port
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.healthCheckPath
+                toFieldPath: spec.template.spec.containers[0].readinessProbe.httpGet.path
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.template.spec.containers[0].envFrom[0].configMapRef.name
 
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.cpuLimit
@@ -166,6 +185,28 @@ spec:
                 fromFieldPath: spec.servicePort
                 toFieldPath: spec.ports[0].port
 
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.containerPort
+                toFieldPath: spec.ports[0].targetPort
+
             readinessChecks:
               - type: NonEmpty
                 fieldPath: spec.clusterIP
+
+          - name: config
+            base:
+              apiVersion: v1
+              kind: ConfigMap
+              data: {}
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: metadata.name
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: metadata.namespace
+
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.config
+                toFieldPath: data
