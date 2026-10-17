@@ -105,3 +105,4 @@ spec:
             readinessChecks:
               - type: NonEmpty
                 fieldPath: spec.clusterIP
+                

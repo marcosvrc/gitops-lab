@@ -51,3 +51,4 @@ spec:
                     - "512Mi"
               required:
                 - image
+                
