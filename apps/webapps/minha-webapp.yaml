@@ -9,4 +9,3 @@ spec:
   crossplane:
     compositionRef:
       name: webapp-local
-      

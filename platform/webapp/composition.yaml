@@ -71,7 +71,7 @@ spec:
                 toFieldPath: spec.template.spec.containers[0].resources.limits.cpu
               - type: FromCompositeFieldPath
                 fromFieldPath: spec.memoryLimit
-                toFieldPath: spec.template.spec.containers[0].resources.limits.memory  
+                toFieldPath: spec.template.spec.containers[0].resources.limits.memory
             readinessChecks:
               - type: MatchCondition
                 matchCondition:
@@ -105,4 +105,3 @@ spec:
             readinessChecks:
               - type: NonEmpty
                 fieldPath: spec.clusterIP
-                

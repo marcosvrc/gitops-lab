@@ -11,4 +11,3 @@ ignore: |
   .git/
   .venv/
   build/
-  

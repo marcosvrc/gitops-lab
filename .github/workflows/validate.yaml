@@ -73,4 +73,3 @@ jobs:
 
       - name: Validate WebApps and render Composition
         run: python scripts/validate_webapps.py
-        
