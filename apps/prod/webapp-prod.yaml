@@ -1,0 +1,13 @@
+apiVersion: platform.example.org/v1alpha1
+kind: WebApp
+metadata:
+  name: webapp-prod
+  namespace: webapps-prod
+spec:
+  image: nginx:1.28
+  replicas: 2
+  servicePort: 8080
+  size: medium
+  crossplane:
+    compositionRef:
+      name: webapp-local

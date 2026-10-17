@@ -20,6 +20,14 @@ platform = root / "platform/webapp"
 build = root / "build"
 build.mkdir(exist_ok=True)
 
+# Pasta em apps/ -> namespace esperado. Toda WebApp precisa estar em uma
+# dessas pastas e declarar o namespace correspondente.
+ENVIRONMENTS = {
+    "webapps": "webapps",
+    "dev": "webapps-dev",
+    "prod": "webapps-prod",
+}
+
 xrd = read_yaml(platform / "xrd.yaml")
 composition = read_yaml(platform / "composition.yaml")
 function = read_yaml(platform / "function.yaml")
@@ -64,63 +72,77 @@ schema["required"] = list(
 )
 Draft7Validator.check_schema(schema)
 
-files = sorted((root / "apps/webapps").glob("*.yaml"))
-files += sorted((root / "apps/webapps").glob("*.yml"))
-require(files, "Nenhuma WebApp encontrada em apps/webapps.")
+total = 0
+for folder, expected_namespace in ENVIRONMENTS.items():
+    env_dir = root / "apps" / folder
+    if not env_dir.is_dir():
+        continue
 
-for path in files:
-    xr = read_yaml(path)
-    require(xr["apiVersion"] == api_version, f"{path}: apiVersion incorreta.")
-    require(xr["kind"] == kind, f"{path}: kind incorreto.")
-    require(
-        xr["metadata"].get("namespace") == "webapps",
-        f"{path}: namespace deve ser webapps.",
-    )
-    Draft7Validator(schema).validate(xr["spec"])
+    files = sorted(env_dir.glob("*.yaml")) + sorted(env_dir.glob("*.yml"))
+    if not files:
+        continue
 
-    # O render nao passa pelo API Server. Aplicamos aqui os defaults
-    # simples definidos na XRD atual antes de executar a Composition.
-    normalized = deepcopy(xr)
-    for field, definition in schema["properties"].items():
-        if field not in normalized["spec"] and "default" in definition:
-            normalized["spec"][field] = deepcopy(definition["default"])
+    env_build = build / folder
+    env_build.mkdir(parents=True, exist_ok=True)
 
-    input_path = build / f"{path.stem}-input.yaml"
-    input_path.write_text(yaml.safe_dump(normalized))
-
-    result = subprocess.run(
-        [
-            "crossplane", "composition", "render",
-            str(input_path),
-            str(platform / "composition.yaml"),
-            str(platform / "function.yaml"),
-            "--crossplane-version=v2.4.2",
-        ],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-    )
-
-    documents = [
-        doc for doc in yaml.safe_load_all(result.stdout) if doc
-    ]
-    resources = [
-        doc for doc in documents
-        if not (
-            doc.get("apiVersion") == api_version
-            and doc.get("kind") == kind
+    for path in files:
+        xr = read_yaml(path)
+        require(xr["apiVersion"] == api_version, f"{path}: apiVersion incorreta.")
+        require(xr["kind"] == kind, f"{path}: kind incorreto.")
+        require(
+            xr["metadata"].get("namespace") == expected_namespace,
+            f"{path}: namespace deve ser {expected_namespace} "
+            f"(pasta apps/{folder}).",
         )
-    ]
-    require(
-        sorted(doc["kind"] for doc in resources) == ["Deployment", "Service"],
-        f"{path}: esperado exatamente um Deployment e um Service.",
-    )
+        Draft7Validator(schema).validate(xr["spec"])
 
-    output_path = build / f"{path.stem}-resources.yaml"
-    output_path.write_text(yaml.safe_dump_all(resources))
+        # O render nao passa pelo API Server. Aplicamos aqui os defaults
+        # simples definidos na XRD atual antes de executar a Composition.
+        normalized = deepcopy(xr)
+        for field, definition in schema["properties"].items():
+            if field not in normalized["spec"] and "default" in definition:
+                normalized["spec"][field] = deepcopy(definition["default"])
 
-    subprocess.run(
-        ["kubeconform", "-strict", "-summary", str(output_path)],
-        check=True,
-    )
-    print(f"OK: {path.relative_to(root)}", flush=True)
+        input_path = env_build / f"{path.stem}-input.yaml"
+        input_path.write_text(yaml.safe_dump(normalized))
+
+        result = subprocess.run(
+            [
+                "crossplane", "composition", "render",
+                str(input_path),
+                str(platform / "composition.yaml"),
+                str(platform / "function.yaml"),
+                "--crossplane-version=v2.4.2",
+            ],
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+        )
+
+        documents = [
+            doc for doc in yaml.safe_load_all(result.stdout) if doc
+        ]
+        resources = [
+            doc for doc in documents
+            if not (
+                doc.get("apiVersion") == api_version
+                and doc.get("kind") == kind
+            )
+        ]
+        require(
+            sorted(doc["kind"] for doc in resources) == ["Deployment", "Service"],
+            f"{path}: esperado exatamente um Deployment e um Service.",
+        )
+
+        output_path = env_build / f"{path.stem}-resources.yaml"
+        output_path.write_text(yaml.safe_dump_all(resources))
+
+        subprocess.run(
+            ["kubeconform", "-strict", "-summary", str(output_path)],
+            check=True,
+        )
+        print(f"OK: {path.relative_to(root)}", flush=True)
+        total += 1
+
+require(total > 0, "Nenhuma WebApp encontrada nas pastas configuradas.")
+print(f"\nTotal validado: {total} WebApp(s).", flush=True)
