@@ -19,6 +19,9 @@ spec:
             base:
               apiVersion: apps/v1
               kind: Deployment
+              metadata:
+                labels:
+                  app.kubernetes.io/part-of: gitops-lab
               spec:
                 replicas: 1
                 selector:
