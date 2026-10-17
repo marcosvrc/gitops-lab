@@ -73,3 +73,6 @@ jobs:
 
       - name: Validate WebApps and render Composition
         run: python scripts/validate_webapps.py
+
+      - name: Test profiles and resource mappings
+        run: python scripts/test_profiles.py
