@@ -1,4 +1,3 @@
-cat > bootstrap/hello-application.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,13 +6,15 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ${GITOPS_REPO_URL}
+    repoURL: https://github.com/marcosvrc/gitops-lab.git
     targetRevision: main
     path: apps/hello
   destination:
     server: https://kubernetes.default.svc
     namespace: hello
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
-EOF
