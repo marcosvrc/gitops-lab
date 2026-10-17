@@ -33,6 +33,22 @@ spec:
                   default: 80
                   minimum: 1
                   maximum: 65535
+                containerPort:
+                  type: integer
+                  description: Porta interna do container.
+                  default: 80
+                  minimum: 1
+                  maximum: 65535
+                healthCheckPath:
+                  type: string
+                  description: Caminho HTTP usado pelo readinessProbe.
+                  default: "/"
+                config:
+                  type: object
+                  description: Pares chave/valor expostos como variaveis de ambiente via ConfigMap.
+                  default: {}
+                  additionalProperties:
+                    type: string
                 cpuLimit:
                   type: string
                   description: Limite de CPU quando size nao estiver definido.

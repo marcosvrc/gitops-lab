@@ -116,6 +116,10 @@ def service(docs):
     return next(d for d in docs if d["kind"] == "Service")
 
 
+def configmap(docs):
+    return next(d for d in docs if d["kind"] == "ConfigMap")
+
+
 def container_resources(dep):
     return dep["spec"]["template"]["spec"]["containers"][0]["resources"]
 
@@ -223,6 +227,46 @@ def test_name_mapping():
     assert svc["spec"]["selector"]["app"] == "widget-api"
 
 
+def test_container_port_mapping():
+    docs = render({"image": "nginx:1.28", "containerPort": 5000})
+    container = deployment(docs)["spec"]["template"]["spec"]["containers"][0]
+    assert container["ports"][0]["containerPort"] == 5000
+    assert container["readinessProbe"]["httpGet"]["port"] == 5000
+    assert service(docs)["spec"]["ports"][0]["targetPort"] == 5000
+
+
+def test_health_check_path_mapping():
+    docs = render({"image": "nginx:1.28", "healthCheckPath": "/healthz"})
+    probe = deployment(docs)["spec"]["template"]["spec"]["containers"][0]["readinessProbe"]
+    assert probe["httpGet"]["path"] == "/healthz"
+
+
+def test_configmap_generated_with_name_and_data():
+    docs = render(
+        {"image": "nginx:1.28", "config": {"APP_NAME": "foo", "LOG_LEVEL": "debug"}},
+        name="cfg-webapp",
+    )
+    cm = configmap(docs)
+    assert cm["metadata"]["name"] == "cfg-webapp"
+    assert cm["data"] == {"APP_NAME": "foo", "LOG_LEVEL": "debug"}
+
+
+def test_configmap_empty_when_config_omitted():
+    docs = render({"image": "nginx:1.28"})
+    cm = configmap(docs)
+    # Com config default {}, o ConfigMap existe sem dados.
+    assert cm["data"] in (None, {}), f"ConfigMap data inesperado: {cm.get('data')}"
+
+
+def test_container_envfrom_points_to_configmap():
+    docs = render({"image": "nginx:1.28"}, name="env-webapp")
+    container = deployment(docs)["spec"]["template"]["spec"]["containers"][0]
+    sources = container.get("envFrom", [])
+    assert any(
+        s.get("configMapRef", {}).get("name") == "env-webapp" for s in sources
+    ), f"envFrom nao referencia o ConfigMap env-webapp: {sources}"
+
+
 TESTS = [
     test_profile_small,
     test_profile_medium,
@@ -236,6 +280,11 @@ TESTS = [
     test_namespace_mapping,
     test_service_port_mapping,
     test_name_mapping,
+    test_container_port_mapping,
+    test_health_check_path_mapping,
+    test_configmap_generated_with_name_and_data,
+    test_configmap_empty_when_config_omitted,
+    test_container_envfrom_points_to_configmap,
 ]
 
 
