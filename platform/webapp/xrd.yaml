@@ -1,0 +1,32 @@
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: webapps.platform.example.org
+spec:
+  scope: Namespaced
+  group: platform.example.org
+  names:
+    kind: WebApp
+    plural: webapps
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                image:
+                  type: string
+                  description: Imagem do container da aplicacao.
+                replicas:
+                  type: integer
+                  description: Quantidade de replicas.
+                  default: 1
+                  minimum: 1
+                  maximum: 5
+              required:
+                - image
