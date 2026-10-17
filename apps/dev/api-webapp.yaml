@@ -1,0 +1,18 @@
+apiVersion: platform.example.org/v1alpha1
+kind: WebApp
+metadata:
+  name: api-webapp
+  namespace: webapps-dev
+spec:
+  image: kennethreitz/httpbin:latest
+  replicas: 1
+  servicePort: 8080
+  containerPort: 80
+  healthCheckPath: /get
+  size: small
+  config:
+    APP_NAME: api-webapp
+    ENVIRONMENT: dev
+  crossplane:
+    compositionRef:
+      name: webapp-local
