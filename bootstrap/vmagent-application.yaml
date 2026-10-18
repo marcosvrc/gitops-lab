@@ -12,8 +12,8 @@ spec:
     helm:
       releaseName: vmagent
       values: |
-        remoteWriteUrls:
-          - http://vm-victoria-metrics-single-server.observability.svc:8428/api/v1/write
+        remoteWrite:
+          - url: http://vm-victoria-metrics-single-server.observability.svc:8428/api/v1/write
         resources:
           requests:
             cpu: 20m
