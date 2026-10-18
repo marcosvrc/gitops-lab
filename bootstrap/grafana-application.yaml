@@ -33,6 +33,111 @@ spec:
                 url: http://vm-victoria-metrics-single-server.observability.svc:8428
                 access: proxy
                 isDefault: true
+        dashboardProviders:
+          dashboardproviders.yaml:
+            apiVersion: 1
+            providers:
+              - name: default
+                orgId: 1
+                folder: ''
+                type: file
+                disableDeletion: false
+                editable: true
+                options:
+                  path: /var/lib/grafana/dashboards/default
+        dashboards:
+          default:
+            lab-overview:
+              json: |
+                {
+                  "title": "Lab Overview",
+                  "uid": "lab-overview",
+                  "schemaVersion": 36,
+                  "version": 1,
+                  "editable": true,
+                  "time": {"from": "now-30m", "to": "now"},
+                  "refresh": "30s",
+                  "timepicker": {},
+                  "templating": {"list": []},
+                  "panels": [
+                    {
+                      "id": 1,
+                      "type": "timeseries",
+                      "title": "CPU por pod (webapps-*)",
+                      "datasource": "VictoriaMetrics",
+                      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0},
+                      "fieldConfig": {
+                        "defaults": {"unit": "none", "min": 0, "custom": {"drawStyle": "line", "lineWidth": 2}},
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~\"webapps.*\",container!=\"\",container!=\"POD\"}[2m]))",
+                          "legendFormat": "{{namespace}}/{{pod}}"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "type": "timeseries",
+                      "title": "Memória working set por pod (webapps-*)",
+                      "datasource": "VictoriaMetrics",
+                      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+                      "fieldConfig": {
+                        "defaults": {"unit": "bytes", "min": 0, "custom": {"drawStyle": "line", "lineWidth": 2}},
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~\"webapps.*\",container!=\"\",container!=\"POD\"})",
+                          "legendFormat": "{{namespace}}/{{pod}}"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 3,
+                      "type": "stat",
+                      "title": "Containers vivos por namespace",
+                      "datasource": "VictoriaMetrics",
+                      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 9},
+                      "fieldConfig": {
+                        "defaults": {"unit": "short", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}},
+                        "overrides": []
+                      },
+                      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "value", "orientation": "auto"},
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "expr": "count by (namespace) (container_memory_working_set_bytes{namespace=~\"webapps.*\",container!=\"\",container!=\"POD\"})",
+                          "legendFormat": "{{namespace}}",
+                          "instant": true
+                        }
+                      ]
+                    },
+                    {
+                      "id": 4,
+                      "type": "stat",
+                      "title": "Saúde dos scrapes (up)",
+                      "datasource": "VictoriaMetrics",
+                      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 9},
+                      "fieldConfig": {
+                        "defaults": {"unit": "none", "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}], "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}},
+                        "overrides": []
+                      },
+                      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "background", "orientation": "auto"},
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "expr": "up",
+                          "legendFormat": "{{job}} @ {{instance}}",
+                          "instant": true
+                        }
+                      ]
+                    }
+                  ]
+                }
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
