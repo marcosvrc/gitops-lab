@@ -36,6 +36,10 @@ Rodando em cluster `kind` sobre Rancher Desktop, sem AWS ou outras dependências
 | Crossplane | 2.4.2 |
 | Argo CD | 3.5.5 |
 | function-patch-and-transform | 0.8.2 |
+| metrics-server (chart) | 3.12.2 |
+| victoria-metrics-single (chart) | 0.17.0 |
+| victoria-metrics-agent (chart) | 0.17.0 |
+| grafana (chart) | 8.5.1 |
 | Python (CI) | 3.12 |
 | yamllint | 1.35.1 |
 | jsonschema | 4.23.0 |
@@ -53,7 +57,7 @@ Rodando em cluster `kind` sobre Rancher Desktop, sem AWS ou outras dependências
 │   └── prod/                   Ambiente prod simulado: webapp-prod (pinned)
 ├── platform/
 │   └── webapp/                 XRD, Composition, Function, RBAC
-├── bootstrap/                  Argo CD Applications (hello, platform, webapps, webapps-dev, webapps-prod)
+├── bootstrap/                  Argo CD Applications: plataforma (hello, platform, webapps, webapps-dev, webapps-prod) + observabilidade (metrics-server, victoriametrics, vmagent, grafana)
 ├── scripts/
 │   ├── check_yaml.py           yamllint + normalização de fim de linha
 │   ├── validate_webapps.py     schema + render + kubeconform (CI)
@@ -86,7 +90,7 @@ Rodando em cluster `kind` sobre Rancher Desktop, sem AWS ou outras dependências
    ```bash
    kubectl apply -f bootstrap/
    ```
-   A partir daí Argo CD toma conta de tudo.
+   A partir daí Argo CD toma conta de tudo. Isso inclui as Applications da plataforma (`hello`, `platform`, `webapps`, `webapps-dev`, `webapps-prod`) e da observabilidade (`metrics-server`, `victoriametrics`, `vmagent`, `grafana`).
 
 ### Setup local (opcional, para rodar scripts)
 
@@ -185,6 +189,57 @@ Preferir imagens com tag/digest identificável (`nginx:1.29`, `httpbin@sha256:..
 - **Rollback de workload** (imagem errada em prod): `git revert <sha-da-promoção>`. Argo CD propaga.
 - **Rollback de Composition** (nova revisão quebrada): editar `apps/prod/<webapp>.yaml` apontando `compositionRevisionRef.name` para uma revisão anterior. Listar com `kubectl get compositionrevisions`.
 
+## Observabilidade
+
+Stack em três camadas, incorporada em três Argo Applications (sem operator, sem CRDs, sem admission webhooks — contornando o que derrubou o `kube-prometheus-stack`):
+
+| Camada | Componente | Namespace | Chart | Função |
+|---|---|---|---|---|
+| 1 | `metrics-server` | `kube-system` | `metrics-server/metrics-server:3.12.2` | Habilita `kubectl top`. ~50 MB RAM |
+| 2 | `vmsingle` (VictoriaMetrics) | `observability` | `victoria-metrics-single:0.17.0` | Storage PromQL-compatible, retenção 1 dia, sem PVC. ~128 MB RAM |
+| 2 | `vmagent` | `observability` | `victoria-metrics-agent:0.17.0` | Scrape de `kubelet-cadvisor` + pods com annotation `prometheus.io/scrape=true`. ~64 MB RAM |
+| 3 | `grafana` | `observability` | `grafana:8.5.1` | UI com datasource VictoriaMetrics pré-configurado. ~128 MB RAM |
+
+### Acesso
+
+```bash
+# kubectl top (uso real agora)
+kubectl top node
+kubectl top pods -A
+
+# Grafana UI (admin/admin)
+kubectl port-forward -n observability svc/grafana 3000:80
+# http://localhost:3000
+
+# VictoriaMetrics direto (PromQL)
+kubectl port-forward -n observability svc/vm-victoria-metrics-single-server 8428:8428
+# http://localhost:8428/vmui
+```
+
+### Métricas disponíveis
+
+Via scrape de cadvisor em cada nó. Principais:
+
+- `container_cpu_usage_seconds_total` — tempo de CPU acumulado por container
+- `container_memory_working_set_bytes` — memória em uso por container
+- `container_fs_*` — I/O de filesystem
+- `up{job="kubelet-cadvisor"}` — saúde do scrape
+
+Para adicionar scrape de um pod próprio (p.ex. uma API expondo `/metrics`), basta anotar o pod:
+```yaml
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+```
+
+### Troubleshooting específico
+
+- **Datasource vazio no Grafana** → confirmar que `vmagent` está Running e scrape config contém `kubelet-cadvisor`.
+- **"up" ausente** → vmagent ainda não começou a scrapar; dar 1–2 minutos após deploy.
+- **Query lenta** → vmsingle sem PVC perde dados a cada restart; retenção configurada é 1 dia.
+
 ## Troubleshooting
 
 | Sintoma | Causa provável | Primeiros passos |
@@ -213,10 +268,11 @@ Em `webapps-dev` pode fazer sentido se o fluxo exigir, mas não é padrão.
 ## Limitações
 
 - **Cluster único** — dev e prod coabitam com separação apenas por namespace (sem NetworkPolicy, sem ResourceQuota).
-- **Sem observabilidade com Prometheus/Grafana** — `kube-prometheus-stack` tentado duas vezes e descartado:
-  - 1ª tentativa (6 vCPUs, 10 GB): load average chegou a 33 (5.5× saturado), apiserver com restarts em cascata, revertido.
-  - 2ª tentativa (10 vCPUs, 10 GB): load average chegou a **83 (8.3× saturado)**, pior que a 1ª apesar do bump de CPU, apiserver com Timeout em `kubectl`, revertido.
-  - **Conclusão:** CPU não é o gargalo isolado; é a combinação de admission webhooks + múltiplos ServiceMonitors fazendo scrape imediato + prometheus-operator reconciliando CRDs, criando avalanche de requests ao apiserver num cluster single-node. Alternativas viáveis estão no Roadmap. Observabilidade vigente é via `diagnose.py` + condições/eventos/logs nativos.
+- **`kube-prometheus-stack` incompatível com esta topologia** — tentado duas vezes e descartado:
+  - 1ª tentativa (6 vCPUs, 10 GB): load average 33 (5.5× saturado), apiserver com restarts em cascata.
+  - 2ª tentativa (10 vCPUs, 10 GB): load average **83 (8.3× saturado)**, pior apesar do bump de CPU.
+  - **Causa:** combinação de admission webhooks + múltiplos ServiceMonitors + prometheus-operator reconciliando CRDs → avalanche de requests ao apiserver num cluster single-node.
+  - **Resolução:** stack alternativa (metrics-server + VictoriaMetrics + Grafana) incorporada ao lab — vide seção **Observabilidade**. Load estável em ~2–3 pós-instalação.
 - **Sem segredos reais** — `config` vai pra `ConfigMap`; nenhum `Secret` é gerado.
 - **Função única** — apenas `function-patch-and-transform`; sem lógica customizada em Go/Python.
 - **Sem imagem com digest** — todas as WebApps usam tags móveis, não digests.
@@ -225,7 +281,10 @@ Em `webapps-dev` pode fazer sentido se o fluxo exigir, mas não é padrão.
 ## Roadmap
 
 - NetworkPolicy e ResourceQuota em `webapps-dev`/`webapps-prod` para isolamento mínimo.
-- Monitoring: evitar `kube-prometheus-stack` nesta topologia. Candidatos a tentar: Prometheus community sem operator (sem CRDs/webhooks), VictoriaMetrics (`vmsingle` + `vmagent`, ~100 MB RAM) ou `kube-prometheus-stack` com `prometheusOperator.enabled: false` + Prometheus "estático".
+- Dashboards do Grafana: hoje só o datasource está pré-configurado. Importar manualmente (via UI) ou provisionar via `dashboards:` nos values (cluster-cadvisor é bom ponto de partida).
+- Secrets no Grafana: `adminPassword: admin` é hardcoded para lab. Em produção, via `Secret` externo.
+- Persistência do VictoriaMetrics: hoje `emptyDir`, perde dados a cada restart do pod. Habilitar PVC se o lab ficar rodando por muito tempo.
+- Observabilidade de camada aplicação: scraping dos endpoints `/metrics` de Argo CD e Crossplane via `prometheus.io/scrape=true` nos pods correspondentes.
 - Secrets: suporte a `Secret` via novo recurso na Composition.
 - Testes HTTP automáticos: `scripts/smoke.py` ou job de Argo rodando curl.
 - App-of-apps: um `bootstrap/root.yaml` que vigia o próprio `bootstrap/`.
